@@ -15,16 +15,17 @@ endif()
 
 target_include_directories(Tests PRIVATE ./Contrib)
 
-target_sources(Tests PRIVATE 
+target_sources(Tests PRIVATE
 	Contrib/catch2/catch_amalgamated.cpp
 	Detour/Tests_Detour.cpp
 	DetourCrowd/Tests_DetourPathCorridor.cpp
+	DetourMultiNavMesh/Tests_DetourMultiNavMesh.cpp
 	Recast/Tests_Alloc.cpp
 	Recast/Tests_Recast.cpp
 	Recast/Tests_RecastFilter.cpp
 	Recast/Tests_RecastRasterization.cpp
 )
 
-target_link_libraries(Tests PRIVATE Recast Detour DetourCrowd)
+target_link_libraries(Tests PRIVATE Recast Detour DetourCrowd DetourMultiNavMesh)
 
 add_test(NAME Tests COMMAND Tests)

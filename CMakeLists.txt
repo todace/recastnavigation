@@ -90,6 +90,7 @@ install(FILES "${RecastNavigation_BINARY_DIR}/recastnavigation.pc" DESTINATION "
 add_subdirectory(DebugUtils)
 add_subdirectory(Detour)
 add_subdirectory(DetourCrowd)
+add_subdirectory(DetourMultiNavMesh)
 add_subdirectory(DetourTileCache)
 add_subdirectory(Recast)
 
