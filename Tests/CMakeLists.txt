@@ -6,6 +6,13 @@ set_target_properties(Tests PROPERTIES
     CXX_EXTENSIONS OFF  # Disable compiler-specific extensions
 )
 
+# Re-enable exceptions for Catch2 (the root CMakeLists disables them)
+if(MSVC)
+	string(REPLACE "/EHs-c-" "/EHsc" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+else()
+	string(REPLACE "-fno-exceptions" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+endif()
+
 # Remove warnings-as-errors
 if(MSVC)
 	target_compile_options(Tests PRIVATE /W3 /WX-)

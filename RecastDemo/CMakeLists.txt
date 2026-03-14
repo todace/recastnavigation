@@ -42,6 +42,7 @@ target_sources(RecastDemo PRIVATE
 	Source/PartitionedMesh.cpp
 	Source/PerfTimer.cpp
 	Source/Sample.cpp
+	Source/Sample_MultiNavMesh.cpp
 	Source/Sample_SoloMesh.cpp
 	Source/Sample_TempObstacles.cpp
 	Source/Sample_TileMesh.cpp
@@ -79,6 +80,7 @@ target_link_libraries(RecastDemo PRIVATE
 	RecastNavigation::DebugUtils
 	RecastNavigation::Detour
 	RecastNavigation::DetourCrowd
+	RecastNavigation::DetourMultiNavMesh
 	RecastNavigation::DetourTileCache
 	RecastNavigation::Recast
 )

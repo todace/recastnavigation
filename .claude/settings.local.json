@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Program Files/Microsoft Visual Studio/2022/**)",
+      "Read(//c/Program Files \\(x86\\)/Microsoft Visual Studio/**)",
+      "Read(//c/Program Files/**)",
+      "Bash(VS_CMAKE=\"C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe\")",
+      "Bash(\"$VS_CMAKE\" --version)",
+      "Bash(curl -L -o /tmp/SDL2-devel.zip \"https://github.com/libsdl-org/SDL/releases/download/release-2.30.12/SDL2-devel-2.30.12-VC.zip\")",
+      "Read(//f/tmp/**)",
+      "Bash(unzip -o SDL2-devel.zip -d SDL2-extract)",
+      "Bash(mkdir -p F:/research/recastnavigation/RecastDemo/Contrib/SDL)",
+      "Bash(cp -r /tmp/SDL2-extract/SDL2-2.30.12/* F:/research/recastnavigation/RecastDemo/Contrib/SDL/)",
+      "Bash(mkdir -p build)",
+      "Bash(\"$VS_CMAKE\" -B build -G \"Visual Studio 17 2022\" -A x64 -DRECASTNAVIGATION_DEMO=ON -DRECASTNAVIGATION_TESTS=OFF -DRECASTNAVIGATION_EXAMPLES=OFF)",
+      "Bash(\"$VS_CMAKE\" --build F:/research/recastnavigation/build --config Release -- /m)",
+      "Bash(\"$VS_CMAKE\" --build F:/research/recastnavigation/build --config Release)",
+      "Bash(\"$VS_CMAKE\" -B build -G \"Visual Studio 17 2022\" -A x64 -DRECASTNAVIGATION_DEMO=ON -DRECASTNAVIGATION_TESTS=OFF -DRECASTNAVIGATION_EXAMPLES=OFF -DCMAKE_CXX_SCAN_FOR_MODULES=OFF)",
+      "Bash(rm -rf build)",
+      "Bash(\"$VS_CMAKE\" -B build -G \"Visual Studio 17 2022\" -A x64 -DRECASTNAVIGATION_DEMO=ON -DRECASTNAVIGATION_TESTS=ON -DRECASTNAVIGATION_EXAMPLES=OFF -DCMAKE_CXX_SCAN_FOR_MODULES=OFF)",
+      "Bash(\"$VS_CMAKE\" --build F:/research/recastnavigation/build --config Release --target Tests)",
+      "Bash(F:/research/recastnavigation/build/Tests/Release/Tests.exe)",
+      "Bash(\"$VS_CMAKE\" --build F:/research/recastnavigation/build --config Release --target RecastDemo)",
+      "Bash(wc -l /f/research/recastnavigation/RecastDemo/Source/*.cpp /f/research/recastnavigation/RecastDemo/Include/*.h)",
+      "Bash(taskkill /F /IM RecastDemo.exe)",
+      "Bash(\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\Community\\\\Common7\\\\IDE\\\\CommonExtensions\\\\Microsoft\\\\CMake\\\\CMake\\\\bin\\\\cmake.exe\" --build build --config Release --target RecastDemo)",
+      "Bash(\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\Community\\\\Common7\\\\IDE\\\\CommonExtensions\\\\Microsoft\\\\CMake\\\\CMake\\\\bin\\\\cmake.exe\" --build build --config Release --target Tests)",
+      "Bash(.TestsReleaseTests.exe)",
+      "Bash(F:researchrecastnavigationbuildTestsReleaseTests.exe)",
+      "Bash(cmd /c \"F:\\\\research\\\\recastnavigation\\\\build\\\\Tests\\\\Release\\\\Tests.exe\")",
+      "Bash(cmd /c \"F:\\\\research\\\\recastnavigation\\\\build\\\\Tests\\\\Release\\\\Tests.exe 2>&1\")",
+      "Bash(powershell -Command \"& ''F:\\\\research\\\\recastnavigation\\\\build\\\\Tests\\\\Release\\\\Tests.exe''\")",
+      "Bash(powershell -Command \"Stop-Process -Name RecastDemo -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1\")",
+      "Bash(buildTestsReleaseTests.exe)",
+      "Bash(./build/Tests/Release/Tests.exe)"
+    ]
+  }
+}

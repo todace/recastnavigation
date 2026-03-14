@@ -22,6 +22,7 @@
 #include "SDL_keycode.h"
 #include "SDL_opengl.h"
 #include "Sample.h"
+#include "Sample_MultiNavMesh.h"
 #include "Sample_SoloMesh.h"
 #include "Sample_TempObstacles.h"
 #include "Sample_TileMesh.h"
@@ -57,9 +58,10 @@ constexpr float CAM_MOVE_SPEED = 4.0f;
 constexpr float CAM_FAST_MOVE_SPEED = 22.0f;
 
 SampleItem g_samples[] = {
-	{.name = "Solo Mesh",      .create = []() { return std::make_unique<Sample_SoloMesh>(); }     },
-	{.name = "Tile Mesh",      .create = []() { return std::make_unique<Sample_TileMesh>(); }     },
-	{.name = "Temp Obstacles", .create = []() { return std::make_unique<Sample_TempObstacles>(); }},
+	{.name = "Solo Mesh",      .create = []() { return std::make_unique<Sample_SoloMesh>(); }      },
+	{.name = "Tile Mesh",      .create = []() { return std::make_unique<Sample_TileMesh>(); }      },
+	{.name = "Temp Obstacles", .create = []() { return std::make_unique<Sample_TempObstacles>(); } },
+	{.name = "Multi NavMesh",  .create = []() { return std::make_unique<Sample_MultiNavMesh>(); }  },
 };
 
 constexpr ImGuiWindowFlags staticWindowFlags = ImGuiWindowFlags_NoMove
@@ -285,10 +287,35 @@ int main(int /*argc*/, char** /*argv*/)
 		app.prevFrameTime = time;
 
 		// Hit test mesh.
-		if (processHitTest && app.inputGeometry && app.sample)
+		if (processHitTest && app.sample)
 		{
-			float hitTime;
-			if (app.inputGeometry->raycastMesh(app.rayStart, app.rayEnd, hitTime))
+			float hitTime = 2.0f; // > 1.0 means no hit
+			bool hit = false;
+
+			// Test against loaded input geometry
+			if (app.inputGeometry)
+			{
+				float t;
+				if (app.inputGeometry->raycastMesh(app.rayStart, app.rayEnd, t))
+				{
+					if (t < hitTime)
+						hitTime = t;
+					hit = true;
+				}
+			}
+
+			// Test against sample's custom geometry (walls, ceiling, etc.)
+			{
+				float t;
+				if (app.sample->raycastCustomGeometry(app.rayStart, app.rayEnd, t))
+				{
+					if (t < hitTime)
+						hitTime = t;
+					hit = true;
+				}
+			}
+
+			if (hit)
 			{
 				float hitPos[3];
 				hitPos[0] = app.rayStart[0] + (app.rayEnd[0] - app.rayStart[0]) * hitTime;

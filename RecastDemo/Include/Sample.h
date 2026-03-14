@@ -170,6 +170,10 @@ public:
 	virtual void renderOverlay();
 	virtual void onMeshChanged(InputGeom* geom);
 	virtual bool build();
+
+	/// Custom raycasting for samples with extra geometry beyond InputGeom.
+	/// Returns true if the ray hit custom geometry, with tmin set to the hit parameter.
+	virtual bool raycastCustomGeometry(const float* src, const float* dst, float& tmin) { (void)src; (void)dst; (void)tmin; return false; }
 	virtual void update(float dt);
 	virtual void collectSettings(struct BuildSettings& settings);
 
