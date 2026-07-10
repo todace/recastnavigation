@@ -18,8 +18,10 @@ target_include_directories(DetourMultiNavMesh PUBLIC
 )
 
 target_sources(DetourMultiNavMesh PRIVATE
+    Source/DetourJumpLinkBuilder.cpp
     Source/DetourMultiNavMesh.cpp
     Source/DetourMultiNavMeshQuery.cpp
+    Source/DetourSurfaceNav.cpp
 )
 
 target_link_libraries(DetourMultiNavMesh Detour)

@@ -20,6 +20,7 @@
 
 #include "DetourCrowd.h"
 #include "DetourDebugDraw.h"
+#include "DetourJumpLinkBuilder.h"
 #include "DetourNavMesh.h"
 #include "DetourNavMeshBuilder.h"
 #include "InputGeom.h"
@@ -378,10 +379,21 @@ bool Sample_MultiNavMesh::build()
 		}
 	}
 
-	// DO NOT use detectLinks() - it uses polygon centroids which produce bad link positions.
-	// Only use precise manual edge-based links.
+	// Automatic edge-based jump links: walks the boundary edges of every
+	// zone navmesh and probes the other zones for landing polys, so links
+	// appear wherever walkable areas of different gravity zones meet.
+	// (The old centroid-based detectLinks() produced bad link positions.)
 	if (addedCount > 1)
-		createManualLinks();
+	{
+		dtJumpLinkBuilderParams jlParams;
+		jlParams.maxJumpDistance = agentRadius * 4.0f + cellSize * 2.0f;
+		jlParams.probeSpacing = cellSize * 4.0f > 0.5f ? cellSize * 4.0f : 0.5f;
+		jlParams.minLinkSpacing = jlParams.probeSpacing * 0.9f;
+		const int autoLinks = dtBuildJumpLinks(multiNavMesh, &jlParams, &filter);
+		buildContext->log(RC_LOG_PROGRESS, "  Auto jump links: %d", autoLinks);
+		if (autoLinks <= 0)
+			createManualLinks();	// Fallback to manually placed edge links.
+	}
 
 	// Init multi-navmesh query
 	multiQuery = dtAllocMultiNavMeshQuery();

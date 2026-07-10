@@ -26,7 +26,9 @@ target_sources(Tests PRIVATE
 	Contrib/catch2/catch_amalgamated.cpp
 	Detour/Tests_Detour.cpp
 	DetourCrowd/Tests_DetourPathCorridor.cpp
+	DetourMultiNavMesh/Tests_DetourJumpLinkBuilder.cpp
 	DetourMultiNavMesh/Tests_DetourMultiNavMesh.cpp
+	DetourMultiNavMesh/Tests_DetourSurfaceNav.cpp
 	Recast/Tests_Alloc.cpp
 	Recast/Tests_Recast.cpp
 	Recast/Tests_RecastFilter.cpp
