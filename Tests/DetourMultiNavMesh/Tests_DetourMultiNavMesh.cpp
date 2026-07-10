@@ -57,15 +57,16 @@ struct SimpleNavMesh
 		unsigned short polys[2 * 2 * nvp];
 		memset(polys, 0xff, sizeof(polys));
 
-		// Poly 0: verts 0,1,2
-		polys[0] = 0; polys[1] = 1; polys[2] = 2;
-		// Neighbors: edge 0-1 = no neighbor (boundary), edge 1-2 = no neighbor, edge 2-0 = poly 1
-		polys[nvp + 0] = 0xffff; polys[nvp + 1] = 0xffff; polys[nvp + 2] = 0x8001; // external link marker + poly 1
+		// Neighbor encoding for dtNavMeshCreateParams: 0xffff = border,
+		// plain value = internal neighbor poly index (the builder adds +1).
 
-		// Poly 1: verts 0,2,3
+		// Poly 0: verts 0,1,2. Edge 2 (diagonal) connects to poly 1.
+		polys[0] = 0; polys[1] = 1; polys[2] = 2;
+		polys[nvp + 0] = 0xffff; polys[nvp + 1] = 0xffff; polys[nvp + 2] = 1;
+
+		// Poly 1: verts 0,2,3. Edge 0 (diagonal) connects to poly 0.
 		polys[2 * nvp + 0] = 0; polys[2 * nvp + 1] = 2; polys[2 * nvp + 2] = 3;
-		// Neighbors: edge 0-2 = poly 0, edge 2-3 = no neighbor, edge 3-0 = no neighbor
-		polys[2 * nvp + nvp + 0] = 0x8000; // external link to poly 0
+		polys[2 * nvp + nvp + 0] = 0;
 		polys[2 * nvp + nvp + 1] = 0xffff;
 		polys[2 * nvp + nvp + 2] = 0xffff;
 

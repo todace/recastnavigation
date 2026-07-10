@@ -292,6 +292,7 @@ dtStatus dtMultiNavMeshQuery::findPath(int startMesh, dtPolyRef startRef, const 
 	// Step 2: Build local path segments.
 	// Segment structure: start -> link[0].sideA, link[0].sideB -> link[1].sideA, ...., link[n].sideB -> end
 	int segIdx = 0;
+	bool complete = true;	// Cleared when any corridor fails or output truncates.
 
 	// Current position and mesh as we walk through the links.
 	int curMesh = startMesh;
@@ -344,6 +345,12 @@ dtStatus dtMultiNavMeshQuery::findPath(int startMesh, dtPolyRef startRef, const 
 		{
 			// Still record the segment even if local path fails (partial result).
 			seg.polyCount = 0;
+			complete = false;
+		}
+		else if (seg.polyCount == 0 || seg.polys[seg.polyCount - 1] != entryPolyRef)
+		{
+			// Corridor stopped short of the link's polygon.
+			complete = false;
 		}
 
 		segIdx++;
@@ -375,14 +382,33 @@ dtStatus dtMultiNavMeshQuery::findPath(int startMesh, dtPolyRef startRef, const 
 				seg.polys, &seg.polyCount, DT_MULTI_MAX_PATH_POLYS);
 
 			if (dtStatusFailed(status))
+			{
 				seg.polyCount = 0;
+				complete = false;
+			}
+			else if (seg.polyCount == 0 || seg.polys[seg.polyCount - 1] != endRef)
+			{
+				complete = false;
+			}
 
 			segIdx++;
 		}
+		else
+		{
+			complete = false;
+		}
+	}
+	else
+	{
+		// Ran out of output segments, or the link chain never reached the
+		// end mesh: the returned path does not arrive at the destination.
+		complete = false;
 	}
 
 	*segmentCount = segIdx;
-	return (*segmentCount > 0) ? DT_SUCCESS : DT_FAILURE;
+	if (*segmentCount == 0)
+		return DT_FAILURE;
+	return complete ? DT_SUCCESS : (DT_SUCCESS | DT_PARTIAL_RESULT);
 }
 
 dtStatus dtMultiNavMeshQuery::findNearestPoly(const float* worldPos, const float* halfExtents,

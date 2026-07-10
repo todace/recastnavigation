@@ -288,6 +288,157 @@ TEST_CASE("dtSurfaceNav minRegionFaces culls small patches")
 	dtFreeSurfaceNav(nav);
 }
 
+namespace
+{
+
+// Appends a box to vertex/triangle arrays. Returns updated vertex count.
+int appendBox(float* verts, int nverts, int* tris, int ntris,
+			  const float* bmin, const float* bmax)
+{
+	BoxGeometry box(bmin, bmax);
+	memcpy(verts + nverts * 3, box.verts, sizeof(box.verts));
+	for (int i = 0; i < 12 * 3; ++i)
+		tris[ntris * 3 + i] = box.tris[i] + nverts;
+	return nverts + 8;
+}
+
+} // namespace
+
+TEST_CASE("dtSurfaceNav smoothed normals connect stairs for walking agents")
+{
+	// Five 1x1-step stairs ascending in +x, each 4 deep in z. Raw voxel
+	// faces alternate between up-facing treads and vertical risers; the
+	// smoothed normals recover the ~45-degree slope.
+	const int STEPS = 5;
+	float verts[STEPS * 8 * 3];
+	int tris[STEPS * 12 * 3];
+	int nverts = 0;
+	for (int i = 0; i < STEPS; ++i)
+	{
+		const float bmin[3] = { (float)i, 0, 0 };
+		const float bmax[3] = { (float)(i + 1), (float)(i + 1), 4 };
+		nverts = appendBox(verts, nverts, tris, i * 12, bmin, bmax);
+	}
+	const int ntris = STEPS * 12;
+
+	const float up[3] = { 0, 1, 0 };
+	const float maxSlopeCos = 0.5f;	// Accept up to ~60 degrees.
+
+	SECTION("Walking path climbs the stairs with smoothing enabled")
+	{
+		dtSurfaceNavParams params;
+		params.cellSize = 1.0f;
+		params.bmin[0] = -2; params.bmin[1] = -2; params.bmin[2] = -2;
+		params.bmax[0] = 8; params.bmax[1] = 8; params.bmax[2] = 6;
+		params.normalSmoothingHops = 2;
+
+		dtSurfaceNav* nav = dtAllocSurfaceNav();
+		REQUIRE(dtStatusSucceed(nav->build(&params, verts, nverts, tris, ntris)));
+
+		dtSurfaceNavFilter walking;
+		walking.setWalking(0, 0, up, maxSlopeCos);
+
+		// Some riser face (vertical raw normal) must now pass the walking
+		// filter thanks to its tilted smoothed normal.
+		bool riserWalkable = false;
+		for (int i = 0; i < nav->getFaceCount() && !riserWalkable; ++i)
+		{
+			const dtSurfaceFace* f = nav->getFace(i);
+			if (f->active && (f->dir == DT_SURF_DIR_XP || f->dir == DT_SURF_DIR_XN) &&
+				nav->passFilter(i, &walking))
+				riserWalkable = true;
+		}
+		REQUIRE(riserWalkable);
+
+		// Walking path from the bottom tread to the top tread must exist.
+		const float bottomPos[3] = { 0.5f, 2, 2 };
+		const float topPos[3] = { 4.5f, 6, 2 };
+		const int startFace = nav->findNearestFace(bottomPos, 2.5f, &walking);
+		const int endFace = nav->findNearestFace(topPos, 2.5f, &walking);
+		REQUIRE(startFace >= 0);
+		REQUIRE(endFace >= 0);
+
+		int path[512];
+		int pathCount = 0;
+		REQUIRE(dtStatusSucceed(nav->findPath(startFace, endFace, &walking,
+											  path, &pathCount, 512)));
+		REQUIRE(pathCount >= 2);
+
+		dtFreeSurfaceNav(nav);
+	}
+
+	SECTION("Raw normals (smoothing disabled) disconnect the stairs")
+	{
+		dtSurfaceNavParams params;
+		params.cellSize = 1.0f;
+		params.bmin[0] = -2; params.bmin[1] = -2; params.bmin[2] = -2;
+		params.bmax[0] = 8; params.bmax[1] = 8; params.bmax[2] = 6;
+		params.normalSmoothingHops = 0;	// Raw axis normals only.
+
+		dtSurfaceNav* nav = dtAllocSurfaceNav();
+		REQUIRE(dtStatusSucceed(nav->build(&params, verts, nverts, tris, ntris)));
+
+		dtSurfaceNavFilter walking;
+		walking.setWalking(0, 0, up, maxSlopeCos);
+
+		const float bottomPos[3] = { 0.5f, 2, 2 };
+		const float topPos[3] = { 4.5f, 6, 2 };
+		const int startFace = nav->findNearestFace(bottomPos, 2.5f, &walking);
+		const int endFace = nav->findNearestFace(topPos, 2.5f, &walking);
+		REQUIRE(startFace >= 0);
+		REQUIRE(endFace >= 0);
+
+		// Every route between treads passes over a vertical riser, which the
+		// raw-normal walking filter rejects: no path.
+		int path[512];
+		int pathCount = 0;
+		REQUIRE(dtStatusFailed(nav->findPath(startFace, endFace, &walking,
+											 path, &pathCount, 512)));
+
+		dtFreeSurfaceNav(nav);
+	}
+}
+
+TEST_CASE("dtSurfaceNav smoothed normals still reject pole shafts")
+{
+	// A thin 1x6x1 pole: its shaft is genuinely vertical, so even smoothed
+	// normals must stay horizontal there and fail a walking filter.
+	const float bmin[3] = { 0, 0, 0 };
+	const float bmax[3] = { 1, 6, 1 };
+	BoxGeometry pole(bmin, bmax);
+
+	dtSurfaceNavParams params;
+	params.cellSize = 1.0f;
+	params.bmin[0] = -2; params.bmin[1] = -2; params.bmin[2] = -2;
+	params.bmax[0] = 3; params.bmax[1] = 8; params.bmax[2] = 3;
+	params.normalSmoothingHops = 2;
+
+	dtSurfaceNav* nav = dtAllocSurfaceNav();
+	REQUIRE(dtStatusSucceed(nav->build(&params, pole.verts, 8, pole.tris, 12)));
+
+	dtSurfaceNavFilter walking;
+	const float up[3] = { 0, 1, 0 };
+	walking.setWalking(0, 0, up, 0.5f);
+
+	// Mid-shaft side faces must fail the walking filter.
+	bool anyMidShaftWalkable = false;
+	for (int i = 0; i < nav->getFaceCount(); ++i)
+	{
+		const dtSurfaceFace* f = nav->getFace(i);
+		if (!f->active || f->dir == DT_SURF_DIR_YP || f->dir == DT_SURF_DIR_YN)
+			continue;
+		float center[3];
+		nav->getFaceCenter(i, center);
+		if (center[1] < 2.0f || center[1] > 4.0f)
+			continue;	// Only mid-height shaft faces, away from cap effects.
+		if (nav->passFilter(i, &walking))
+			anyMidShaftWalkable = true;
+	}
+	REQUIRE_FALSE(anyMidShaftWalkable);
+
+	dtFreeSurfaceNav(nav);
+}
+
 TEST_CASE("dtSurfaceNav build validation")
 {
 	dtSurfaceNav* nav = dtAllocSurfaceNav();

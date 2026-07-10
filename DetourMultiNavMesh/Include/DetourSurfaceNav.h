@@ -43,6 +43,13 @@ struct dtSurfaceFace
 	unsigned char active;	///< Nonzero when the face survived region filtering.
 	int neis[4];			///< Neighbour face index per lateral direction, -1 if none.
 	int region;				///< Planar patch id the face belongs to.
+
+	/// Smoothed unit normal: the average of raw face normals over a small
+	/// surface neighbourhood. Voxel faces can only point along 6 axis
+	/// directions, so raw normals cannot express intermediate slopes; the
+	/// smoothed normal recovers them (a 45-degree staircase of voxel faces
+	/// gets ~45-degree smoothed normals). Walking filters test this normal.
+	float snormal[3];
 };
 
 /// Build parameters for the surface wrap.
@@ -57,9 +64,16 @@ struct dtSurfaceNavParams
 	/// too small to stay on. 1 keeps everything.
 	int minRegionFaces;
 
+	/// Graph-hop radius used to compute per-face smoothed normals
+	/// (see: dtSurfaceFace::snormal). 0 disables smoothing (smoothed normal
+	/// equals the raw axis normal), larger values regularize rough surfaces
+	/// over a wider footprint. Typical: 2.
+	int normalSmoothingHops;
+
 	dtSurfaceNavParams()
 		: cellSize(0.5f)
 		, minRegionFaces(1)
+		, normalSmoothingHops(2)
 	{
 		bmin[0] = bmin[1] = bmin[2] = 0;
 		bmax[0] = bmax[1] = bmax[2] = 0;
@@ -78,9 +92,12 @@ struct dtSurfaceNavGravityZone
 /// Filter for surface navigation queries.
 ///
 /// Climbing agents traverse every face regardless of orientation.
-/// Walking agents only accept faces whose normal opposes the local gravity
-/// (dot(normal, up) >= maxSlopeCos), where the local up direction comes from
-/// the containing gravity zone or defaults to defaultUp.
+/// Walking agents only accept faces whose smoothed normal opposes the local
+/// gravity (dot(snormal, up) >= maxSlopeCos), where the local up direction
+/// comes from the containing gravity zone or defaults to defaultUp. Testing
+/// the smoothed normal (rather than the raw axis normal) keeps ramps, stairs
+/// and rough-but-regular surfaces connected for walking agents while still
+/// rejecting genuinely vertical structure such as walls and pole shafts.
 class dtSurfaceNavFilter
 {
 public:
@@ -162,8 +179,11 @@ public:
 	/// World-space center of a face.
 	void getFaceCenter(int i, float* center) const;
 
-	/// Unit normal of a face.
+	/// Raw axis-aligned unit normal of a face.
 	void getFaceNormal(int i, float* normal) const;
+
+	/// Smoothed unit normal of a face. (See: dtSurfaceFace::snormal)
+	void getFaceSmoothedNormal(int i, float* normal) const;
 
 	/// Whether a face passes the given filter (active + orientation check).
 	bool passFilter(int i, const dtSurfaceNavFilter* filter) const;
@@ -207,6 +227,7 @@ private:
 	int faceIndexAt(int x, int y, int z, int dir) const;
 	void buildAdjacency();
 	void filterRegions(int minRegionFaces);
+	void computeSmoothedNormals(int hops);
 
 	dtSurfaceNavParams m_params;
 	int m_width, m_height, m_depth;	///< Grid dimensions in voxels.

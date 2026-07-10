@@ -36,13 +36,16 @@ struct QuadNavMesh
 			0, 0, (unsigned short)sizeVx,
 		};
 
+		// Neighbor encoding for dtNavMeshCreateParams: 0xffff = border,
+		// plain value = internal neighbor poly index. The two triangles
+		// share the diagonal (poly0 edge 2 <-> poly1 edge 0).
 		const int nvp = 6;
 		unsigned short polys[2 * 2 * nvp];
 		memset(polys, 0xff, sizeof(polys));
 		polys[0] = 0; polys[1] = 1; polys[2] = 2;
-		polys[nvp + 2] = 0x8001;
+		polys[nvp + 2] = 1;
 		polys[2 * nvp + 0] = 0; polys[2 * nvp + 1] = 2; polys[2 * nvp + 2] = 3;
-		polys[2 * nvp + nvp + 0] = 0x8000;
+		polys[2 * nvp + nvp + 0] = 0;
 
 		unsigned short polyFlags[] = { 1, 1 };
 		unsigned char polyAreas[] = { 0, 0 };
@@ -165,12 +168,23 @@ TEST_CASE("dtBuildJumpLinks connects adjacent coplanar meshes")
 	float endWorld[] = { 18, 0, 5 };
 	dtMultiNavMeshPathSegment segments[8];
 	int segCount = 0;
-	REQUIRE(dtStatusSucceed(query->findPath(idxA, startRef, startWorld,
-											idxB, endRef, endWorld,
-											&filter, segments, &segCount, 8)));
+	const dtStatus fullStatus = query->findPath(idxA, startRef, startWorld,
+												idxB, endRef, endWorld,
+												&filter, segments, &segCount, 8);
+	REQUIRE(dtStatusSucceed(fullStatus));
+	REQUIRE_FALSE(dtStatusDetail(fullStatus, DT_PARTIAL_RESULT));
 	REQUIRE(segCount >= 2);
 	REQUIRE(segments[0].meshIndex == idxA);
 	REQUIRE(segments[segCount - 1].meshIndex == idxB);
+
+	// Truncated output must be flagged as partial.
+	int partialCount = 0;
+	const dtStatus partialStatus = query->findPath(idxA, startRef, startWorld,
+												   idxB, endRef, endWorld,
+												   &filter, segments, &partialCount, 1);
+	REQUIRE(dtStatusSucceed(partialStatus));
+	REQUIRE(dtStatusDetail(partialStatus, DT_PARTIAL_RESULT));
+	REQUIRE(partialCount == 1);
 
 	dtFreeMultiNavMeshQuery(query);
 }

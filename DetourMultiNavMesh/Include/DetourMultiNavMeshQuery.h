@@ -67,7 +67,10 @@ public:
 	///  @param[out]	segments		Output array of path segments.
 	///  @param[out]	segmentCount	Number of segments in the output.
 	///  @param[in]		maxSegments		Maximum segments the output array can hold.
-	/// @return The status flags for the operation.
+	/// @return The status flags for the operation. DT_PARTIAL_RESULT is set
+	///         when the returned segments do not reach the destination:
+	///         the output was truncated by maxSegments, or a local corridor
+	///         within a segment stopped short of its target polygon.
 	dtStatus findPath(int startMesh, dtPolyRef startRef, const float* startPos,
 					  int endMesh, dtPolyRef endRef, const float* endPos,
 					  const dtQueryFilter* filter,

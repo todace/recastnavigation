@@ -398,7 +398,89 @@ dtStatus dtSurfaceNav::build(const dtSurfaceNavParams* params,
 	if (params->minRegionFaces > 1)
 		filterRegions(params->minRegionFaces);
 
+	// --- 6. Smoothed normals (after culling so removed faces don't
+	// contribute). ---
+	computeSmoothedNormals(params->normalSmoothingHops);
+
 	return DT_SUCCESS;
+}
+
+void dtSurfaceNav::computeSmoothedNormals(int hops)
+{
+	// Initialize all smoothed normals to the raw axis normal.
+	for (int i = 0; i < m_faceCount; ++i)
+	{
+		const int* n = DIR_VEC[m_faces[i].dir];
+		m_faces[i].snormal[0] = (float)n[0];
+		m_faces[i].snormal[1] = (float)n[1];
+		m_faces[i].snormal[2] = (float)n[2];
+	}
+	if (hops <= 0 || m_faceCount == 0)
+		return;
+
+	// BFS ring per face over the adjacency graph, averaging raw normals.
+	// A stamp array avoids clearing visited state between faces.
+	int* queue = (int*)dtAlloc(sizeof(int) * m_faceCount, DT_ALLOC_TEMP);
+	int* depth = (int*)dtAlloc(sizeof(int) * m_faceCount, DT_ALLOC_TEMP);
+	int* stamp = (int*)dtAlloc(sizeof(int) * m_faceCount, DT_ALLOC_TEMP);
+	if (!queue || !depth || !stamp)
+	{
+		dtFree(queue); dtFree(depth); dtFree(stamp);
+		return;
+	}
+	memset(stamp, 0xff, sizeof(int) * m_faceCount);
+
+	for (int i = 0; i < m_faceCount; ++i)
+	{
+		if (!m_faces[i].active)
+			continue;
+
+		float acc[3] = { 0, 0, 0 };
+		int head = 0, tail = 0;
+		queue[tail] = i;
+		depth[tail] = 0;
+		++tail;
+		stamp[i] = i;
+
+		while (head < tail)
+		{
+			const int cur = queue[head];
+			const int curDepth = depth[head];
+			++head;
+
+			const int* n = DIR_VEC[m_faces[cur].dir];
+			acc[0] += (float)n[0];
+			acc[1] += (float)n[1];
+			acc[2] += (float)n[2];
+
+			if (curDepth >= hops)
+				continue;
+			for (int s = 0; s < 4; ++s)
+			{
+				const int nei = m_faces[cur].neis[s];
+				if (nei < 0 || stamp[nei] == i || !m_faces[nei].active)
+					continue;
+				stamp[nei] = i;
+				queue[tail] = nei;
+				depth[tail] = curDepth + 1;
+				++tail;
+			}
+		}
+
+		const float len = sqrtf(acc[0]*acc[0] + acc[1]*acc[1] + acc[2]*acc[2]);
+		if (len > 1e-6f)
+		{
+			m_faces[i].snormal[0] = acc[0] / len;
+			m_faces[i].snormal[1] = acc[1] / len;
+			m_faces[i].snormal[2] = acc[2] / len;
+		}
+		// Degenerate accumulation (opposing normals cancel out): keep the
+		// raw axis normal set above.
+	}
+
+	dtFree(queue);
+	dtFree(depth);
+	dtFree(stamp);
 }
 
 void dtSurfaceNav::buildAdjacency()
@@ -524,6 +606,11 @@ void dtSurfaceNav::getFaceNormal(int i, float* normal) const
 	normal[2] = (float)n[2];
 }
 
+void dtSurfaceNav::getFaceSmoothedNormal(int i, float* normal) const
+{
+	dtVcopy(normal, m_faces[i].snormal);
+}
+
 bool dtSurfaceNav::passFilter(int i, const dtSurfaceNavFilter* filter) const
 {
 	if (i < 0 || i >= m_faceCount || !m_faces[i].active)
@@ -531,11 +618,13 @@ bool dtSurfaceNav::passFilter(int i, const dtSurfaceNavFilter* filter) const
 	if (filter->isClimbing())
 		return true;
 
-	float center[3], normal[3], up[3];
+	// Walking agents test the smoothed normal so that stairs, ramps and
+	// rough-but-regular surfaces stay connected despite their axis-aligned
+	// raw face normals.
+	float center[3], up[3];
 	getFaceCenter(i, center);
-	getFaceNormal(i, normal);
 	localUpAt(filter, center, up);
-	return dtVdot(normal, up) >= filter->getMaxSlopeCos();
+	return dtVdot(m_faces[i].snormal, up) >= filter->getMaxSlopeCos();
 }
 
 int dtSurfaceNav::findNearestFace(const float* pos, float maxRadius,
